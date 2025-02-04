@@ -13,6 +13,11 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+type Config struct {
+	Url    string `json:"url"`
+	Method string `json:"method"`
+}
+
 // ChatCompletion represents the overall response structure
 type ChatCompletion struct {
 	ID      string     `json:"id"`
@@ -25,21 +30,15 @@ type ChatCompletion struct {
 
 // Choice represents a choice in the response
 type Choice struct {
-	Index        int       `json:"index"`
-	Message      Message   `json:"message"`
-	Logprobs     *Logprobs `json:"logprobs"`
-	FinishReason string    `json:"finish_reason"`
+	Index        int     `json:"index"`
+	Message      Message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
 }
 
 // Message represents a message from the assistant
 type Message struct {
 	Content string `json:"content"`
 	Role    string `json:"role"`
-}
-
-// Logprobs represents log probability information (can be nil)
-type Logprobs struct {
-	// Define fields if needed, assuming null means no data provided
 }
 
 // TokenUsage represents token usage details
@@ -51,13 +50,12 @@ type TokenUsage struct {
 
 func main() {
 	cmd := &cli.Command{
-		Name:  "ask",
-		Usage: "ask the local LLM a question",
+		Name:           "ask",
+		Usage:          "ask the local LLM a question, in quotes, as the first argument to the command",		
 		Action: func(context.Context, *cli.Command) error {
 			args := os.Args[1:]
-
-			if len(args) > 1 {
-				return fmt.Errorf("Error: multiple arguments not yet supported")
+			if len(args) != 1 {
+				return fmt.Errorf(`Error: question format not yet supported. Please ask your question in quotes. For example, "Why is the sky blue?"`)
 			}
 			arg := args[0]
 
@@ -77,6 +75,16 @@ func main() {
 }
 
 func client(input string) (output string, err error) {
+	file, err := os.Open("config.json")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	config := &Config{}
+	err = decoder.Decode(config)
+
 	request := fmt.Sprintf(`{
 		"messages": [
 		  {
@@ -90,8 +98,8 @@ func client(input string) (output string, err error) {
 		]
 	  }`, input)
 
-	url := "http://localhost:58930/v1/chat/completions"
-	method := "POST"
+	url := config.Url
+	method := config.Method
 	payload := strings.NewReader(request)
 
 	client := &http.Client{}

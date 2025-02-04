@@ -1,0 +1,4 @@
+{
+    "url": "http://localhost:54277/v1/chat/completions",
+    "method": "POST"
+  }

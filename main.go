@@ -14,8 +14,9 @@ import (
 )
 
 type Config struct {
-	Url    string `json:"url"`
-	Method string `json:"method"`
+	Url          string `json:"url"`
+	Method       string `json:"method"`
+	Instructions string `json:"instructions"`
 }
 
 // ChatCompletion represents the overall response structure
@@ -42,23 +43,35 @@ type Message struct {
 }
 
 // TokenUsage represents token usage details
+// TODO: implement token handling
 type TokenUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
 
+var subcommandAsk = "ask"
+
 func main() {
 	cmd := &cli.Command{
-		Name:           "ask",
-		Usage:          "ask the local LLM a question, in quotes, as the first argument to the command",		
+		Name:  subcommandAsk,
+		Usage: `ask the local LLM a question, in quotes, as the first argument to the "ask" subcommand`,
 		Action: func(context.Context, *cli.Command) error {
-			args := os.Args[1:]
-			if len(args) != 1 {
-				return fmt.Errorf(`Error: question format not yet supported. Please ask your question in quotes. For example, "Why is the sky blue?"`)
-			}
-			arg := args[0]
 
+			// collect the user input and pass it to client
+			args := os.Args[1:]
+			cmd := args[0]
+
+			if cmd != subcommandAsk {
+				return fmt.Errorf(`Error: subcommand '%s' not yet implemeted`, cmd)
+			}
+
+			// user should provide exactly 2 arguments - the subcommand, and the question in quotes
+			if len(args) != 2 {
+				return fmt.Errorf(`Please ask your question in quotes. For example, "Why is the sky blue?"`)
+			}
+
+			arg := args[1]
 			out, err := client(arg)
 			if err != nil {
 				return err
@@ -74,7 +87,10 @@ func main() {
 	}
 }
 
+// client uses the config file to interact locally with the LLM
 func client(input string) (output string, err error) {
+
+	// Read from the config file
 	file, err := os.Open("config.json")
 	if err != nil {
 		return "", err
@@ -85,10 +101,11 @@ func client(input string) (output string, err error) {
 	config := &Config{}
 	err = decoder.Decode(config)
 
+	// construct the HTTP request from config file content
 	request := fmt.Sprintf(`{
 		"messages": [
 		  {
-			"content": "You are a helpful assistant.",
+			"content": "%s",
 			"role": "system"
 		  },
 		  {
@@ -96,7 +113,7 @@ func client(input string) (output string, err error) {
 			"role": "user"
 		  }
 		]
-	  }`, input)
+	  }`, config.Instructions, input)
 
 	url := config.Url
 	method := config.Method
@@ -111,6 +128,7 @@ func client(input string) (output string, err error) {
 	}
 	req.Header.Add("Content-Type", "application/json")
 
+	// send request to the local LLM via provided URL
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
@@ -124,6 +142,7 @@ func client(input string) (output string, err error) {
 		return "", err
 	}
 
+	// unmarshal response into ChatCompletion struct
 	var chat ChatCompletion
 	err = json.Unmarshal([]byte(body), &chat)
 	if err != nil {
@@ -131,7 +150,7 @@ func client(input string) (output string, err error) {
 		return "", err
 	}
 
-	// Extract and print the content only
+	// extract and print the content (answer) only
 	if len(chat.Choices) > 0 {
 		return chat.Choices[0].Message.Content, nil
 	}

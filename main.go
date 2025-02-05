@@ -59,9 +59,13 @@ func main() {
 		Action: func(context.Context, *cli.Command) error {
 
 			// collect the user input and pass it to client
+			// TODO: migrate the user input handling to bufio
 			args := os.Args[1:]
-			cmd := args[0]
+			if len(args) == 0 {
+				return fmt.Errorf(`Error: no arguments provided`)
+			}
 
+			cmd := args[0]
 			if cmd != subcommandAsk {
 				return fmt.Errorf(`Error: subcommand '%s' not yet implemeted`, cmd)
 			}

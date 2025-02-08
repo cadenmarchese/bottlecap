@@ -1,5 +1,5 @@
 {
-    "url": "http://localhost:54277/v1/chat/completions",
+    "url": "http://localhost:56817/v1/chat/completions",
     "method": "POST",
     "instructions": "You are a helpful assistant."
   }

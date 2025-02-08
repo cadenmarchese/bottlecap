@@ -156,7 +156,9 @@ func client(input string) (output string, err error) {
 
 	// extract and print the content (answer) only
 	if len(chat.Choices) > 0 {
-		return chat.Choices[0].Message.Content, nil
+		return fmt.Sprintf("%s\n\nCompletion Tokens: %v\nPrompt Tokens: %v\nTotal Tokens: %v",
+			chat.Choices[0].Message.Content, chat.Usage.CompletionTokens,
+			chat.Usage.PromptTokens, chat.Usage.TotalTokens), nil
 	}
 
 	return "", fmt.Errorf("No content found.")

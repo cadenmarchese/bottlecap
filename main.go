@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,8 +14,9 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+// Config represents the structure of config.json
 type Config struct {
-	Url          string `json:"url"`
+	URL          string `json:"url"`
 	Method       string `json:"method"`
 	Instructions string `json:"instructions"`
 }
@@ -29,7 +31,7 @@ type ChatCompletion struct {
 	Usage   TokenUsage `json:"usage"`
 }
 
-// Choice represents a choice in the response
+// Choice represents an individual choice in the response
 type Choice struct {
 	Index        int     `json:"index"`
 	Message      Message `json:"message"`
@@ -43,123 +45,117 @@ type Message struct {
 }
 
 // TokenUsage represents token usage details
-// TODO: implement token handling
 type TokenUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 }
 
-var subcommandAsk = "ask"
+const subcommandAsk = "ask"
 
 func main() {
-	cmd := &cli.Command{
+	app := &cli.Command{
 		Name:  subcommandAsk,
-		Usage: `ask the local LLM a question, in quotes, as the first argument to the "ask" subcommand`,
-		Action: func(context.Context, *cli.Command) error {
-
-			// collect the user input and pass it to client
-			// TODO: migrate the user input handling to bufio
+		Usage: `Ask the local LLM a question by providing it as the first argument to the "ask" subcommand.`,
+		Action: func(ctx context.Context, cmd *cli.Command) error {
 			args := os.Args[1:]
-			if len(args) == 0 {
-				return fmt.Errorf(`Error: no arguments provided`)
+
+			if len(args) < 2 || args[0] != subcommandAsk {
+				return errors.New(`Usage: ask "Your question in quotes"`)
 			}
 
-			cmd := args[0]
-			if cmd != subcommandAsk {
-				return fmt.Errorf(`Error: subcommand '%s' not yet implemeted`, cmd)
-			}
-
-			// user should provide exactly 2 arguments - the subcommand, and the question in quotes
-			if len(args) != 2 {
-				return fmt.Errorf(`Please ask your question in quotes. For example, "Why is the sky blue?"`)
-			}
-
-			arg := args[1]
-			out, err := client(arg)
+			question := args[1]
+			response, err := client(question)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf(out)
+			fmt.Println(response)
 			return nil
 		},
 	}
 
-	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		log.Fatal(err)
+	if err := app.Run(context.Background(), os.Args); err != nil {
+		log.Fatalf("Error: %v", err)
 	}
 }
 
-// client uses the config file to interact locally with the LLM
-func client(input string) (output string, err error) {
-
-	// Read from the config file
-	file, err := os.Open("config.json")
+// client interacts with the local LLM based on the config file
+func client(input string) (string, error) {
+	config, err := loadConfig("config.json")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+
+	requestPayload := createRequestPayload(config.Instructions, input)
+	responseBody, err := sendRequest(config.Method, config.URL, requestPayload)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+
+	return parseResponse(responseBody)
+}
+
+// loadConfig reads and parses the config.json file
+func loadConfig(filename string) (*Config, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
 	}
 	defer file.Close()
 
+	var config Config
 	decoder := json.NewDecoder(file)
-	config := &Config{}
-	err = decoder.Decode(config)
+	if err := decoder.Decode(&config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
 
-	// construct the HTTP request from config file content
-	request := fmt.Sprintf(`{
-		"messages": [
-		  {
-			"content": "%s",
-			"role": "system"
-		  },
-		  {
-			"content": "%s",
-			"role": "user"
-		  }
-		]
-	  }`, config.Instructions, input)
+// createRequestPayload constructs the JSON request body
+func createRequestPayload(instruction, userInput string) string {
+	payload := map[string]interface{}{
+		"messages": []map[string]string{
+			{"content": instruction, "role": "system"},
+			{"content": userInput, "role": "user"},
+		},
+	}
+	data, _ := json.Marshal(payload)
+	return string(data)
+}
 
-	url := config.Url
-	method := config.Method
-	payload := strings.NewReader(request)
+// sendRequest sends an HTTP request to the LLM server
+func sendRequest(method, url, payload string) ([]byte, error) {
+	req, err := http.NewRequest(method, url, strings.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	req, err := http.NewRequest(method, url, payload)
-
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-	req.Header.Add("Content-Type", "application/json")
-
-	// send request to the local LLM via provided URL
 	res, err := client.Do(req)
 	if err != nil {
-		fmt.Println(err)
-		return "", err
+		return nil, err
 	}
 	defer res.Body.Close()
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
+	return io.ReadAll(res.Body)
+}
 
-	// unmarshal response into ChatCompletion struct
+// parseResponse extracts meaningful content from the response JSON
+func parseResponse(body []byte) (string, error) {
 	var chat ChatCompletion
-	err = json.Unmarshal([]byte(body), &chat)
-	if err != nil {
-		fmt.Println("Error decoding JSON:", err)
-		return "", err
+	if err := json.Unmarshal(body, &chat); err != nil {
+		return "", fmt.Errorf("error decoding JSON: %w", err)
 	}
 
-	// extract and print the content (answer) only
-	if len(chat.Choices) > 0 {
-		return fmt.Sprintf("%s\n\nCompletion Tokens: %v\nPrompt Tokens: %v\nTotal Tokens: %v",
-			chat.Choices[0].Message.Content, chat.Usage.CompletionTokens,
-			chat.Usage.PromptTokens, chat.Usage.TotalTokens), nil
+	if len(chat.Choices) == 0 {
+		return "", errors.New("no content found in response")
 	}
 
-	return "", fmt.Errorf("No content found.")
+	choice := chat.Choices[0]
+	return fmt.Sprintf(
+		"%s\n\nCompletion Tokens: %d\nPrompt Tokens: %d\nTotal Tokens: %d",
+		choice.Message.Content, chat.Usage.CompletionTokens, chat.Usage.PromptTokens, chat.Usage.TotalTokens,
+	), nil
 }

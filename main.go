@@ -18,6 +18,7 @@ import (
 type Config struct {
 	URL          string `json:"url"`
 	BearerToken  string `json:"bearerToken"`
+	Model        string `json:"model"`
 	Instructions string `json:"instructions"`
 }
 
@@ -87,7 +88,7 @@ func client(input string) (string, error) {
 		return "", fmt.Errorf("failed to load config: %w", err)
 	}
 
-	requestPayload := createRequestPayload(config.Instructions, input)
+	requestPayload := createRequestPayload(config.Model, config.Instructions, input)
 	responseBody, err := sendRequest("POST", config.URL, requestPayload)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
@@ -113,8 +114,9 @@ func loadConfig(filename string) (*Config, error) {
 }
 
 // createRequestPayload constructs the JSON request body
-func createRequestPayload(instruction, userInput string) string {
+func createRequestPayload(model, instruction, userInput string) string {
 	payload := map[string]interface{}{
+		"model": model,
 		"messages": []map[string]string{
 			{"content": instruction, "role": "system"},
 			{"content": userInput, "role": "user"},

@@ -17,7 +17,7 @@ import (
 // Config represents the structure of config.json
 type Config struct {
 	URL          string `json:"url"`
-	Method       string `json:"method"`
+	BearerToken  string `json:"bearerToken"`
 	Instructions string `json:"instructions"`
 }
 
@@ -88,7 +88,7 @@ func client(input string) (string, error) {
 	}
 
 	requestPayload := createRequestPayload(config.Instructions, input)
-	responseBody, err := sendRequest(config.Method, config.URL, requestPayload)
+	responseBody, err := sendRequest("POST", config.URL, requestPayload)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
@@ -126,11 +126,22 @@ func createRequestPayload(instruction, userInput string) string {
 
 // sendRequest sends an HTTP request to the LLM server
 func sendRequest(method, url, payload string) ([]byte, error) {
+	config, err := loadConfig("config.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
 	req, err := http.NewRequest(method, url, strings.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
+
+	// set headers
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if config.BearerToken != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.BearerToken))
+	}
 
 	client := &http.Client{}
 	res, err := client.Do(req)

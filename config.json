@@ -1,6 +1,7 @@
 {
-    "url": "http://localhost:56817/v1/chat/completions",
+    "url": "",
     "bearerToken": "",
     "model": "",
-    "instructions": "You are a helpful assistant."
+    "chatInstructions": "You are a helpful assistant.",
+    "imageInstructions": "Describe this image."
   }

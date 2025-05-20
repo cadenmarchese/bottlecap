@@ -1,4 +1,4 @@
-module bottlecap
+module github.com/cadenmarchese/bottlecap
 
 go 1.22
 

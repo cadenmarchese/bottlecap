@@ -5,12 +5,12 @@ bottlecap is a simple Go client for interacting with OpenAI compatible LLM serve
 
 1. `git clone https://github.com/cadenmarchese/bottlecap`
 
-1. Within the repo, modify the config file accordingly, where URL is the host and port where your LLM is served, and instructions are the LLM's system role:
+1. Within the repo, modify the config file accordingly, or provide your own config file, with the following fields:
     ```json
     {
         "url": "https://example.com/v1/chat/completions",
         "bearerToken": "<your bearer token>",
-        "model": "llama-scout-maas",
+        "model": "<optionally-specify-model>",
         "chatInstructions": "You are a helpful assistant.",
         "imageInstructions": "Describe this image."
     }

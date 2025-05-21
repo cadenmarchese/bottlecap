@@ -3,7 +3,6 @@ package client
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,7 +93,7 @@ func parseResponse(body []byte) (string, error) {
 	}
 
 	if len(chat.Choices) == 0 {
-		return "", errors.New("no content found in response")
+		return "", fmt.Errorf("no content found in response: %v", chat)
 	}
 
 	choice := chat.Choices[0]

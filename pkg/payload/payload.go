@@ -1,8 +1,10 @@
 package payload
 
 import (
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
+
+	"github.com/cadenmarchese/bottlecap/pkg/util"
 )
 
 func CreateChatRequestPayload(model, instruction, userInput string) (string, error) {
@@ -28,25 +30,34 @@ func CreateChatRequestPayload(model, instruction, userInput string) (string, err
 	return string(data), nil
 }
 
+// experimental - will download an image from URL and provide it to the LLM
 func CreateImageRequestPayload(model, instruction string, imageUrl string) (string, error) {
+	var image []byte
+	image, err := util.DownloadAndConvertImageToBytes(imageUrl)
+	if err != nil {
+		return "", err
+	}
+
 	payload := map[string]interface{}{
 		"model": model,
 		"messages": []map[string]interface{}{
 			{
-				"content": instruction,
 				"role":    "system",
+				"content": instruction,
 			},
 			{
-				"content": imageUrl,
 				"role":    "user",
-				"type":    "image",
+				"content": instruction,
 			},
 		},
+		"input": map[string]interface{}{
+			"text": instruction,
+		},
+		"image_data": base64.StdEncoding.EncodeToString(image),
 	}
 
 	data, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 

@@ -50,38 +50,3 @@ func TestCreateChatRequestPayload(t *testing.T) {
 		}
 	}
 }
-
-func TestCreateImageRequestPayload(t *testing.T) {
-	model := "someModel"
-	instruction := "create an image of a cat"
-	imageUrl := "https://example.com/cat.jpg"
-
-	expectedPayload := map[string]interface{}{
-		"model": model,
-		"messages": []map[string]interface{}{
-			{
-				"content": instruction,
-				"role":    "system",
-			},
-			{
-				"content": imageUrl,
-				"role":    "user",
-				"type":    "image",
-			},
-		},
-	}
-
-	expectedJSON, err := json.Marshal(expectedPayload)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	payload, err := CreateImageRequestPayload(model, instruction, imageUrl)
-	if err != nil {
-		t.Errorf("CreateImageRequestPayload() error = %v", err)
-	}
-
-	if string(expectedJSON) != payload {
-		t.Errorf("CreateImageRequestPayload() payload = %v, want %v", payload, string(expectedJSON))
-	}
-}

@@ -12,7 +12,7 @@ import (
 	"github.com/cadenmarchese/bottlecap/pkg/client"
 )
 
-var supportedArgs []string = []string{"ask", "image"}
+var supportedArgs []string = []string{"ask", "image", "generate"}
 
 func main() {
 	app := &cli.Command{
@@ -21,7 +21,7 @@ func main() {
 			args := os.Args[1:]
 
 			if len(args) < 2 || !strings.Contains(strings.Join(supportedArgs, ""), args[0]) {
-				return fmt.Errorf(`usage: ask "Your question in quotes" - or, image "your Image URL"`)
+				return fmt.Errorf(`usage: ask "Your question in quotes" - or, image "your Image URL" - or, generate "your image description"`)
 			}
 
 			subcommand := args[0]

@@ -1,4 +1,3 @@
-// client interacts with the local LLM based on the config file
 package client
 
 import (
@@ -13,6 +12,7 @@ import (
 	"github.com/cadenmarchese/bottlecap/pkg/types"
 )
 
+// Client parses the user input provided, constructs a payload, sends, and then parses the response from LLM.
 func Client(subcommand, argument string) (string, error) {
 	config, err := loadConfig("config.json")
 	if err != nil {
@@ -20,21 +20,45 @@ func Client(subcommand, argument string) (string, error) {
 	}
 
 	var requestPayload string
+	var responseBody []byte
+
+	failedToSendError := fmt.Errorf("failed to send request: %w", err)
+	chatCompletionsApi := "v1/chat/completions"
+	imageGenerationsApi := "v1/images/generations"
+
 	if subcommand == "ask" {
 		requestPayload, err = payload.CreateChatRequestPayload(config.Model, config.ChatInstructions, argument)
 		if err != nil {
 			return "", err
 		}
+
+		responseBody, err = sendRequest("POST", fmt.Sprintf("%s/%s", config.URL, chatCompletionsApi), requestPayload)
+		if err != nil {
+			return "", failedToSendError
+		}
+
 	} else if subcommand == "image" {
 		requestPayload, err = payload.CreateImageRequestPayload(config.Model, config.ImageInstructions, argument)
 		if err != nil {
 			return "", err
 		}
-	}
 
-	responseBody, err := sendRequest("POST", config.URL, requestPayload)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
+		responseBody, err = sendRequest("POST", fmt.Sprintf("%s/%s", config.URL, chatCompletionsApi), requestPayload)
+		if err != nil {
+			return "", failedToSendError
+		}
+
+	} else if subcommand == "generate" {
+		requestPayload, err = payload.CreateImageGenerationPayload(config.Model, argument)
+		if err != nil {
+			return "", err
+		}
+
+		responseBody, err = sendRequest("POST", fmt.Sprintf("%s/%s", config.URL, imageGenerationsApi), requestPayload)
+		if err != nil {
+			return "", failedToSendError
+		}
+
 	}
 
 	return parseResponse(responseBody)

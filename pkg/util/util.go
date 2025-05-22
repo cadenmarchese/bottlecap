@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+// DownloadAndConvertImageToBytes pulls an image from URL and then converts it to []byte
+// for use in the request payload.
 func DownloadAndConvertImageToBytes(imageURL string) ([]byte, error) {
 	resp, err := http.Get(imageURL)
 	if err != nil {

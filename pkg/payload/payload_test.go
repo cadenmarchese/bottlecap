@@ -50,3 +50,59 @@ func TestCreateChatRequestPayload(t *testing.T) {
 		}
 	}
 }
+
+func TestCreateImageGenerationPayload(t *testing.T) {
+	tests := []struct {
+		name       string
+		model      string
+		userInput  string
+		wantErr    bool
+		wantKeyLen int
+	}{
+		{
+			name:       "success",
+			model:      "model",
+			userInput:  "generate an image of a cat",
+			wantErr:    false,
+			wantKeyLen: 4,
+		},
+		{
+			name:      "empty model",
+			model:     "",
+			userInput: "generate an image of a cat",
+			wantErr:   false,
+			wantKeyLen: 4,
+		},
+		{
+			name:       "empty user input",
+			model:      "model",
+			userInput:  "",
+			wantErr:    false,
+			wantKeyLen: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			payload, err := CreateImageGenerationPayload(tt.model, tt.userInput)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateImageGenerationPayload() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if len(payload) == 0 {
+				t.Errorf("expected a payload but got an empty string")
+			}
+
+			var payloadMap map[string]interface{}
+			err = json.Unmarshal([]byte(payload), &payloadMap)
+			if err != nil {
+				t.Errorf("failed to unmarshal payload: %v", err)
+			}
+
+			if len(payloadMap) != tt.wantKeyLen {
+				t.Errorf("expected payload map to have %d keys but got %d", tt.wantKeyLen, len(payloadMap))
+			}
+		})
+	}
+}
